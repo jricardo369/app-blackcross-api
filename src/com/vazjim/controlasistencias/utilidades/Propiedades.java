@@ -14,10 +14,10 @@ public class Propiedades {
 
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
-			prop.load(inputStream);
 			if (inputStream == null) {
 				throw new FileNotFoundException("archivo de propiedades '" + propFileName + "' no se encuentra en classpath");
 			}
+			prop.load(inputStream);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -25,7 +25,7 @@ public class Propiedades {
 		return prop;
 
 	}
-	
+
 	public Properties getPropertiesErrores() {
 
 		Properties prop = new Properties();
@@ -33,10 +33,10 @@ public class Propiedades {
 
 		try {
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
-			prop.load(inputStream);
 			if (inputStream == null) {
 				throw new FileNotFoundException("archivo de propiedades '" + propFileName + "' no se encuentra en classpath");
 			}
+			prop.load(inputStream);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -44,7 +44,7 @@ public class Propiedades {
 		return prop;
 
 	}
-	
+
 	public static void main(String args[]){
 		Propiedades p = new Propiedades();
 		Properties pp = p.getProperties();

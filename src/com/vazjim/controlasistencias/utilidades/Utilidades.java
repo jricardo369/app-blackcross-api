@@ -574,7 +574,7 @@ public class Utilidades {
 		return salida;
 	}
 
-	public static boolean validaNomenclaturaContraseña(String contrasenia, String tamanioAbajo,String tamanioArriba) {
+	public static boolean validaNomenclaturaContrasenia(String contrasenia, String tamanioAbajo,String tamanioArriba) {
 		boolean salida = true;
 		Configuracion conf = ConfiguracionLogica.obtenerConIdentificador("EXPRESION-CONT");
 		String exp = conf.getValorAbajo().replace("P1", tamanioAbajo).replace("P2", tamanioAbajo);

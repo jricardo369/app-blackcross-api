@@ -273,7 +273,7 @@ public class UsuarioServicio {
 
 			//log.info("Validando nomenclatura contrasenia minimo " + conf.getValorAbajo());
 			// Validando nomenclatura de contrasenia
-			validaContrasenia = Utilidades.validaNomenclaturaContraseña(cambioContrasenia.getContraseniaNueva(),
+			validaContrasenia = Utilidades.validaNomenclaturaContrasenia(cambioContrasenia.getContraseniaNueva(),
 					conf.getValorAbajo(),conf.getValorArriba());
 			if (validaContrasenia == false) {
 				return MensajeLogica.obtenerMensajeCompletoConParametros("US-NOM-CONTRASENIA", "ES",
