@@ -31,6 +31,9 @@ _ReSharper*/
 .DS_Store
 /Thumbs.db
 
+# VS Code
+.vscode/
+
 # IA/IA generated files (opencode, claude, etc.)
 /generated/
 /ai-output/
