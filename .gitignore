@@ -1,0 +1,50 @@
+# Archivos bytecode y build
+*.class
+*.jar
+*.war
+
+# Eclipse IDE
+.project
+.classpath
+.metadata/
+.settings/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio
+*.sln
+*.suo
+*.user
+*.sdf
+*.tw
+_ReSharper*/
+
+# Build outputs
+/bin/
+/target/
+
+# OS generated files
+.DS_Store
+/Thumbs.db
+
+# IA/IA generated files (opencode, claude, etc.)
+/generated/
+/ai-output/
+/*.ai.*
+/.transcripts/
+
+# Dependency directories
+.lock-wscript
+*.pyc
+__pycache__/
+
+# Log files
+*.log
+
+# Temporary files
+/tmp/
+/temp/
