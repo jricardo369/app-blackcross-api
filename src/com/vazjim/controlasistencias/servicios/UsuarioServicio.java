@@ -27,6 +27,7 @@ import com.vazjim.controlasistencias.modelo.Configuracion;
 import com.vazjim.controlasistencias.modelo.Inscripcion;
 import com.vazjim.controlasistencias.modelo.InscripcionUs;
 import com.vazjim.controlasistencias.modelo.LogInterno;
+import com.vazjim.controlasistencias.modelo.MembresiaAVencer;
 import com.vazjim.controlasistencias.modelo.Usuario;
 import com.vazjim.controlasistencias.utilidades.Utilidades;
 
@@ -39,6 +40,23 @@ public class UsuarioServicio {
 	String mensaje = "";
 
 	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	public String obtenerUsuariosTodos(@QueryParam("sociedad")int sociedad) {
+
+		//log.info("Obtener usuarios");
+		UsuarioLogica usuarioObj = new UsuarioLogica();
+		List<Usuario> lUsuarios = null;
+		try {
+			lUsuarios = usuarioObj.obtenerTodosLosUsuarios(sociedad);
+			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", lUsuarios);
+		} catch (SQLException e) {
+			return MensajeLogica.errorBD(e);
+		}
+
+	}
+
+	@GET
+	@Path("/todos")
 	@Produces(MediaType.APPLICATION_JSON)
 	public String obtenerUsuarios(@QueryParam("sociedad")int sociedad) {
 
@@ -99,6 +117,51 @@ public class UsuarioServicio {
 		try {
 			lUsuarios = usuarioObj.obtener("id_usuario", idUsuario,sociedad,true);
 			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", lUsuarios);
+		} catch (SQLException e) {
+			return MensajeLogica.errorBD(e);
+		}
+
+	}
+
+	@GET
+	@Path("/datos/{idUsuario}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public String obtenerDatosUsuario(@PathParam("idUsuario") int idUsuario) {
+
+		//log.info("idUsuario:" + idUsuario);
+		UsuarioLogica usuarioObj = new UsuarioLogica();
+		Usuario u = null;
+		try {
+
+			if (idUsuario == 0) {
+				return MensajeLogica.obtenerMensajeCompleto("US-IDUSUARIO-VACIO", "ES");
+			}
+
+			u = usuarioObj.obtenerUsuarioConMembresiaYAsistencias(idUsuario);
+
+			if (u == null) {
+				return MensajeLogica.obtenerMensajeCompleto("US-NOEXISTENTE", "ES");
+			}
+
+			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", u);
+
+		} catch (SQLException e) {
+			return MensajeLogica.errorBD(e);
+		}
+
+	}
+
+	@GET
+	@Path("/proximos-vencer-membresia")
+	@Produces(MediaType.APPLICATION_JSON)
+	public String obtenerProximosVencerMembresia(@QueryParam("sociedad") int sociedad) {
+
+		//log.info("Membresias por vencer");
+		UsuarioLogica usuarioObj = new UsuarioLogica();
+		List<MembresiaAVencer> lMembresias = null;
+		try {
+			lMembresias = usuarioObj.usuariosMembresiasAVencer(sociedad);
+			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", lMembresias);
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
 		}
@@ -220,6 +283,28 @@ public class UsuarioServicio {
 					return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", mensaje);
 				}
 			}
+		} catch (SQLException e) {
+			return MensajeLogica.errorBD(e);
+		}
+
+	}
+	
+	@PUT
+	@Path("actualizar-fecha-tc/{idUsuario}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public String actualizarFechaTC(@PathParam ("idUsuario") int idUsuario) {
+
+		UsuarioLogica usuarioObj = new UsuarioLogica();
+
+		try {
+
+			// Validar que el id usuario venga lleno
+			if (idUsuario == 0) {
+				return MensajeLogica.obtenerMensajeCompleto("US-IDUSUARIO-VACIO", "ES");
+			}
+
+			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", usuarioObj.actualizarFechaTC(idUsuario));
+
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
 		}

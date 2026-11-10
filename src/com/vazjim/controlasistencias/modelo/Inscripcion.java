@@ -21,6 +21,7 @@ public class Inscripcion {
 	private String descripcion;
 	private int sociedad;
 	private String vencimiento;
+	private int tipoPaquete;
 	
 	public int getIdUsuario() {
 		return idUsuario;
@@ -123,6 +124,12 @@ public class Inscripcion {
 	}
 	public void setVencimiento(String vencimiento) {
 		this.vencimiento = vencimiento;
+	}
+	public int getTipoPaquete() {
+		return tipoPaquete;
+	}
+	public void setTipoPaquete(int tipoPaquete) {
+		this.tipoPaquete = tipoPaquete;
 	}
 	
 	

@@ -89,10 +89,11 @@ public class ClaseLogica {
 				clase.setEstatus(rs.getString(8));
 				clase.setSociedad(rs.getInt(9));
 				clase.setDia(rs.getString(10));
-				dia = rs.getString(10);
-				if(dia != null){
+				/*dia = rs.getString(10);
+
+				if(dia != null || !"".equals(dia)){
 					clase.setDiaDescripcion(Utilidades.fechaEnLetra(rs.getString(10)));
-				}	
+				}	*/
 
 				if (clase.getHorario().equals("M")) {
 					horario = "AM";

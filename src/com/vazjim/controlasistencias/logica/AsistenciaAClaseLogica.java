@@ -1419,8 +1419,112 @@ public class AsistenciaAClaseLogica {
 				}
 			}
 		}
-		Mensaje m = MensajeLogica.obtenerMensaje("US-ACTUALIZADO", "ES");
-		return m.getMensaje();
+Mensaje m = MensajeLogica.obtenerMensaje("US-ACTUALIZADO", "ES");
+        return m.getMensaje();
+    }
+
+    /**
+     * Obtiene las proximas clases (fechas futuras) en las que el usuario tiene registrada su asistencia.
+     * Se basa en la tabla asistencia_a_clase, uniendo con clase para obtener la informacion de la misma.
+     *
+     * <p>Mejoras aplicadas sobre la consulta original:
+     * <ul>
+     * <li>Se elimino el JOIN con la tabla usuario: no se usaba ningun dato de esa tabla y solo
+     * multiplicaba el costo de la consulta.</li>
+     * <li>Se utilizo PreparedStatement con marcador de posicion para el id del usuario, evitando
+     * inyeccion SQL y permitiendo que se consulte el indice de asistencia_a_clase.</li>
+     * <li>El ordenamiento es ASC por fecha (y hora de inicio) porque se trata de las <b>proximas</b>
+     * clases: la clase mas cercana es la primera. La consulta original ordenaba de forma descendente.</li>
+     * <li>Se agrego el LEFT JOIN con el profesor para devolver tambien su nombre.</li>
+     * </ul>
+     * </p>
+     *
+     * @param usuario usuario del que se obtendran las proximas clases
+     * @return lista de clases ordenadas de la mas cercana a la mas lejana, vacia si el usuario no tiene clases futuras
+     * @throws SQLException
+     */
+    public List<Clase> obtenerProximasClasesUsuario(Usuario usuario) throws SQLException {
+
+        List<Clase> clases = new ArrayList<>();
+
+        if (usuario == null || usuario.getIdUsuario() <= 0) {
+            log.debug("No se puede obtener las proximas clases, usuario invalido");
+            return clases;
+        }
+
+        Connection conn = Conexion.getConnectionDbPool();
+
+        PreparedStatement st = null;
+        ResultSet rs = null;
+
+        String querySql = "SELECT a.id_clase,a.fecha,c.nombre,c.profesor,c.horario,c.hora_inicio,c.hora_fin,c.personas,p.nombre "
+                + "FROM asistencia_a_clase a "
+                + "JOIN clase c ON c.id_clase = a.id_clase "
+                + "LEFT JOIN usuario p ON p.id_usuario = c.profesor "
+                + "WHERE a.id_usuario = ? AND a.fecha > CURDATE() "
+                + "ORDER BY a.fecha ASC, c.hora_inicio ASC, c.horario ASC";
+
+        try {
+
+            st = conn.prepareStatement(querySql);
+            st.setInt(1, usuario.getIdUsuario());
+            rs = st.executeQuery();
+
+            while (rs != null && rs.next()) {
+
+                String fecha = rs.getString(2);
+                String horario = rs.getString(5);
+
+                Clase clase = new Clase();
+                clase.setIdClase(rs.getInt(1));
+                clase.setFecha(fecha);
+                clase.setNombre(rs.getString(3));
+                clase.setProfesor(rs.getString(4));
+                clase.setHorario(horario != null ? horario : "");
+                clase.setHoraInicio(rs.getString(6));
+                clase.setHoraFin(rs.getString(7));
+                clase.setPersonas(rs.getString(8));
+                clase.setProfesorNombre(rs.getString(9));
+
+                String amPm = "M".equals(clase.getHorario()) ? "AM" : "PM";
+                clase.setDescripcionHorario("Clase de " + clase.getHoraInicio() + " " + amPm + " a "
+                        + clase.getHoraFin() + " " + amPm);
+                clase.setDescCorta(clase.getFecha() + " | " + clase.getHoraInicio() + " a " + clase.getHoraFin() + " " + amPm);
+
+                if (fecha != null && !"".equals(fecha)) {
+                    clase.setDia(Utilidades.diaSemana(fecha));
+                    clase.setDiaDescripcion(Utilidades.fechaEnLetra(fecha));
+                }
+
+                clases.add(clase);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new SQLException();
+        } finally {
+            if (rs != null) { try { rs.close(); } catch (SQLException e) { ; } rs = null; }
+            if (st != null) { try { st.close(); } catch (SQLException e) { ; } st = null; }
+            if (conn != null && !conn.isClosed()) { try { conn.close(); } catch (SQLException e) { ; } conn = null; }
+        }
+
+        return clases;
+    }
+
+	public boolean borrarClasesAtrasParaBorrado() {
+		String querySql = "DELETE FROM control_asistencias_fitness.asistencia_a_clase " +
+				"WHERE fecha < NOW() - INTERVAL 1 MONTH;";
+
+		try (Connection conn = Conexion.getConnectionDbPool();
+				PreparedStatement st = conn.prepareStatement(querySql)) {
+
+			st.executeUpdate();
+			return true;
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 }

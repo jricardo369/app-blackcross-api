@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -119,7 +120,20 @@ public class InscripcionLogica {
 						obj.setVencimiento("No cuenta con días");
 					}
 				} else {
-					obj.setVencimiento("Vence " + obj.getFechaCorte().substring(0, 10));
+					String fechaActual;
+					try {
+						fechaActual = Utilidades.generarFecha(true, false, false, "", 0, null);
+						System.out.println("Fecha actual: " + fechaActual);
+						System.out.println("Fecha corte: " + obj.getFechaCorte());
+						if(obj.getFechaCorte().compareTo(fechaActual) < 0){
+						obj.setVencimiento("Vencida el " + obj.getFechaCorte().substring(0, 10));
+					}else{
+						obj.setVencimiento("Vence " + obj.getFechaCorte().substring(0, 10));
+					}
+					} catch (ParseException e) {
+						e.printStackTrace();
+					}
+					
 				}
 
 				lista.add(obj);
@@ -173,7 +187,11 @@ public class InscripcionLogica {
 		Inscripcion obj = null;
 
 		querySql = "SELECT p.id_inscripcion, u.id_usuario,u.nombre, tp.descripcion,tp.id_tipo_pago, i.id_tipo_inscripcion,"
-				+ "i.tipo_inscripcion, p.comentario,p.fecha_alta,i.monto,p.fecha_inicio,p.clases,p.clases_restantes,p.fecha_corte,p.sociedad "
+				+ "i.tipo_inscripcion, p.comentario,p.fecha_alta,i.monto,p.fecha_inicio,p.clases,"
+				+ "GREATEST(p.clases - (SELECT COUNT(*) FROM asistencia_a_clase a WHERE a.id_usuario = p.id_usuario "
+				+ "AND a.fecha >= DATE(p.fecha_inicio) "
+				+ "AND a.fecha < DATE(p.fecha_corte) + INTERVAL 1 DAY), 0) AS clases_restantes,"
+				+ "p.fecha_corte,p.sociedad "
 				+ "FROM inscripcion p " + "JOIN usuario u on u.id_usuario = p.id_usuario "
 				+ "JOIN tipo_pago tp on tp.id_tipo_pago = p.id_tipo_pago "
 				+ "JOIN tipo_inscripcion i on i.id_tipo_inscripcion = p.id_tipo_inscripcion "
@@ -357,8 +375,8 @@ public class InscripcionLogica {
 		Connection conn = Conexion.getConnectionDbPool();
 		TipoInscripcion ti = obtenerTipoInscripcion(ins.getTipoInscripcion());
 
-		querySql = "INSERT INTO inscripcion(id_usuario,id_tipo_pago,id_tipo_inscripcion,comentario,fecha_inicio,clases,clases_restantes,fecha_corte,sociedad) "
-				+ "VALUES(?,?,?,?,?,?,?,?,?)";
+		querySql = "INSERT INTO inscripcion(id_usuario,id_tipo_pago,id_tipo_inscripcion,comentario,fecha_inicio,clases,clases_restantes,fecha_corte,sociedad,tipo_paquete) "
+				+ "VALUES(?,?,?,?,?,?,?,?,?,?)";
 
 		try {
 
@@ -413,9 +431,18 @@ public class InscripcionLogica {
 				System.out.println("fecha meses + "+diasCorte+" dias:"+fechac);
 				st.setString(8, fechac);
 				
+			}else{
+
+				System.out.println("tipo clase no mensual");
+				// Tomar dias permitidos para clases
+				val = ti.getValor();
+				String fechac = Utilidades.sumarDiasAFechasSinDomingos(ins.getFechaInicio(), val);
+				st.setString(8, fechac);
+
 			}
 
 			st.setInt(9, ins.getSociedad());
+			st.setInt(10, ins.getTipoPaquete());
 
 			st.execute();
 			conn.commit();
@@ -811,6 +838,22 @@ public class InscripcionLogica {
 		String fechaCorteMensual = Utilidades.sumarDiasAFechas(fechaUltimoDiaMes, 5);
 		System.out.println("fechac:" + fechaCorteMensual);
 
+	}
+
+	public boolean borrarInscripcionesAtrasParaBorrado() {
+		String querySql = "DELETE FROM control_asistencias_fitness.inscripcion " +
+				"WHERE fecha < NOW() - INTERVAL 1 MONTH;";
+
+		try (Connection conn = Conexion.getConnectionDbPool();
+				PreparedStatement st = conn.prepareStatement(querySql)) {
+
+			st.executeUpdate();
+			return true;
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 }

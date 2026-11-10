@@ -15,6 +15,7 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.log4j.Logger;
 
+import com.vazjim.controlasistencias.logica.AsistenciaAClaseHyroxLogica;
 import com.vazjim.controlasistencias.logica.AsistenciaAClaseLogica;
 import com.vazjim.controlasistencias.logica.ClaseLogica;
 import com.vazjim.controlasistencias.logica.ConfiguracionLogica;
@@ -23,6 +24,7 @@ import com.vazjim.controlasistencias.logica.MensajeLogica;
 import com.vazjim.controlasistencias.logica.UsuarioLogica;
 import com.vazjim.controlasistencias.modelo.AsistenciaAClase;
 import com.vazjim.controlasistencias.modelo.Clase;
+import com.vazjim.controlasistencias.modelo.ClaseHyrox;
 import com.vazjim.controlasistencias.modelo.Configuracion;
 import com.vazjim.controlasistencias.modelo.Inscripcion;
 import com.vazjim.controlasistencias.modelo.InscripcionUs;
@@ -107,8 +109,42 @@ public class AsistenciaAClaseServicio {
 	public String agregarUsuarioDeClase(@PathParam("idClase") int idClase, @PathParam("idUsuario") int idUsuario,
 			@QueryParam("fecha") String fecha,@QueryParam("lugar") String lugar,@QueryParam("sociedad") int sociedad) throws ParseException {
 
-		AsistenciaAClaseLogica logica = new AsistenciaAClaseLogica();
+		try {
+
 		UsuarioLogica logicaUs = new UsuarioLogica();
+
+		// Tomando usuario
+		Usuario usuario = logicaUs.obtenerUsuarioConMembresiaYAsistencias(idUsuario);
+
+		// Validando que exista el usuario
+		log.debug("--- Validando que usuario exista");
+		if (usuario == null) {
+			return MensajeLogica.obtenerMensajeCompleto("US-NOEXISTENTE", "ES");
+		} else {
+			// Validando que el usuario este activo
+			log.debug("--- Validando que usuario este activo");
+			String estatus = usuario.getEstatus() != null ? usuario.getEstatus() : "";
+			if (estatus.equals("0")) {
+				return MensajeLogica.obtenerMensajeCompleto("US-INACTIVO", "ES");
+			}
+			if (estatus.equals("3")) {
+				return MensajeLogica.obtenerMensajeCompleto("US-BLOQUEADO", "ES");
+			}
+		}
+
+		if(usuario.getTipoPaquete().equals("Hibrido")){
+				AsistenciaAClaseHyroxLogica asistenciaAClaseHyrox = new AsistenciaAClaseHyroxLogica();
+				try {
+					ClaseHyrox c = asistenciaAClaseHyrox.estaEnClaseEnFechaHyrox(fecha, idUsuario);
+					if(c != null){
+						return MensajeLogica.obtenerMensajeCompleto("ERR-CLASE-HYROX", "ES");
+					}
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+
+		AsistenciaAClaseLogica logica = new AsistenciaAClaseLogica();
 		String asistenciaAClase = "";
 		boolean horarioFueraDeClase = false;
 		boolean horarioAntesDeClase = false;
@@ -118,7 +154,7 @@ public class AsistenciaAClaseServicio {
 		if (fecha == null) {
 			fecha = Utilidades.generarFecha(true, false, false, "", 0, null);
 		}
-		try {
+		
 			
 			//Validar duplicidad en lugar,fecha y clase
 			/*boolean vd = logica.lugarOcupado(fecha, lugar, idClase);
@@ -154,24 +190,6 @@ public class AsistenciaAClaseServicio {
 					log.debug("Clase fuera de horario");
 					return MensajeLogica.obtenerMensajeCompletoConParametros("AS-HORAS-PERMITIDAS-ALTA", "ES",
 							c.getNombre(), "", "", "");
-				}
-			}
-
-			// Tomando usuario
-			List<Usuario> usuario = logicaUs.obtener("id_usuario", String.valueOf(idUsuario),sociedad,false);
-			// Validando que exista el usuario
-			log.debug("--- Validando que usuario exista");
-			if (usuario.isEmpty()) {
-				return MensajeLogica.obtenerMensajeCompleto("US-NOEXISTENTE", "ES");
-			} else {
-				// Validando que el usuario este activo
-				log.debug("--- Validando que usuario este activo");
-				String estatus = usuario.get(0).getEstatus() != null ? usuario.get(0).getEstatus() : "";
-				if (estatus.equals("0")) {
-					return MensajeLogica.obtenerMensajeCompleto("US-INACTIVO", "ES");
-				}
-				if (estatus.equals("3")) {
-					return MensajeLogica.obtenerMensajeCompleto("US-BLOQUEADO", "ES");
 				}
 			}
 
@@ -515,6 +533,33 @@ public class AsistenciaAClaseServicio {
 
 	public static void main(String args[]) throws SQLException {
 		
+	}
+
+	@GET
+	@Path("/proximas-clases/{idUsuario}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public String obtenerProximasClasesUsuario(@PathParam("idUsuario") int idUsuario)
+			throws ParseException {
+
+		log.debug("Obtener proximas clases del usuario " + idUsuario);
+		AsistenciaAClaseLogica logica = new AsistenciaAClaseLogica();
+		UsuarioLogica logicaUs = new UsuarioLogica();
+
+		try {
+
+			Usuario usuario = logicaUs.obtenerUsuarioById(idUsuario);
+			if (usuario == null) {
+				return MensajeLogica.obtenerMensajeCompleto("US-NOEXISTENTE", "ES");
+			}
+
+			List<Clase> clases = logica.obtenerProximasClasesUsuario(usuario);
+
+			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", clases);
+
+		} catch (SQLException e) {
+			return MensajeLogica.errorBD(e);
+		}
+
 	}
 
 }
