@@ -59,24 +59,22 @@ public class ClaseHyroxServicio {
 	@GET
 	@Path("/por-fecha/{fecha}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public String obtenerPorFecha(@PathParam("fecha") String fecha, @QueryParam("sociedad") int sociedad) {
+	public String obtenerPorFecha(@PathParam("fecha") String fecha, @QueryParam("sociedad") int sociedad, @QueryParam("idProfesor") int idProfesor) {
 
 		ClaseHyroxLogica logica = new ClaseHyroxLogica();
 		List<ClaseHyrox> clases = null;
 		try {
-			clases = logica.obtenerPorFecha(fecha, sociedad);
+			clases = logica.obtenerPorFecha(fecha, sociedad, idProfesor, false);
 			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "", clases);
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
 		}
-
 	}
 
 	@GET
 	@Path("/por-fecha-usuario/{fecha}/{idUsuario}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public String obtenerPorFechaDeUsuario(@PathParam("fecha") String fecha, @PathParam("idUsuario") int idUsuario, @QueryParam("sociedad") int sociedad) {
-
 		ClaseHyroxLogica logica = new ClaseHyroxLogica();
 		List<ClaseHyrox> clases = null;
 		try {
@@ -85,14 +83,12 @@ public class ClaseHyroxServicio {
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
 		}
-
 	}
 
 	@GET
 	@Path("/{idClaseHyrox}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public String obtenerPorId(@PathParam("idClaseHyrox") int idClaseHyrox) {
-
 		ClaseHyroxLogica logica = new ClaseHyroxLogica();
 		ClaseHyrox clase = null;
 		try {
@@ -101,7 +97,6 @@ public class ClaseHyroxServicio {
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
 		}
-
 	}
 
 	@POST
@@ -109,13 +104,13 @@ public class ClaseHyroxServicio {
 	public String crear(String JSONClase) {
 
 		Utilidades util = new Utilidades();
-
 		ClaseHyroxLogica logica = new ClaseHyroxLogica();
 		Gson gSon = new GsonBuilder().create();
 		ClaseHyrox clase = new ClaseHyrox();
 
 		String respuesta = "";
 		String json = "";
+		
 		try {
 
 			json = util.isJSONValid(JSONClase);

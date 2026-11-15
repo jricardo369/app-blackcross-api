@@ -136,14 +136,14 @@ public class ClaseServicio {
 	@GET
 	@Path("/por-fecha/{fecha}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public String obtenerClasesDeFecha(@PathParam("fecha") String fecha,@QueryParam("sociedad")int sociedad) {
+	public String obtenerClasesDeFecha(@PathParam("fecha") String fecha,@QueryParam("sociedad")int sociedad,@QueryParam("idProfesor")int idProfesor,@QueryParam("semana")boolean semana) {
 
 		//log.info("Clases por fecha");
 
 		ClaseLogica logica = new ClaseLogica();
 		List<Clase> clases = null;
 		try {
-			clases = logica.obtenerClasesPorFecha(fecha,0,sociedad,0);
+			clases = logica.obtenerClasesPorFecha(fecha,0,sociedad,idProfesor,semana);
 			return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "",clases);
 		} catch (SQLException e) {
 			return MensajeLogica.errorBD(e);
@@ -175,38 +175,9 @@ public class ClaseServicio {
 				
 			} else {
 				
-				clases = logica.obtenerClasesPorFecha(fecha, idUsuario,sociedad,0);
+				clases = logica.obtenerClasesPorFecha(fecha, idUsuario,sociedad,0,false);
 				return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "",clases);
 				
-			}
-			
-		} catch (SQLException e) {
-			return MensajeLogica.errorBD(e);
-		}
-	}
-	
-	@GET
-	@Path("/por-fecha/profesor/{fecha}/{idProfesor}")
-	@Produces(MediaType.APPLICATION_JSON)
-	public String obtenerClasesDeFechaYUsuarioProfesor(@PathParam("fecha") String fecha,@PathParam("idProfesor") int idProfesor,@QueryParam("sociedad")int sociedad) {
-
-		//log.info("Clases por fecha profesor");
-		boolean esAsuetoGeneral = false;
-
-		ClaseLogica logica = new ClaseLogica();
-		AsuetoLogica asl = new AsuetoLogica();
-		List<Clase> clases = null;
-		
-		try {
-			
-			// Validar que no sea aseuto general de todas las clases
-			esAsuetoGeneral = asl.esAsuetoGeneral(fecha,sociedad);
-
-			if (esAsuetoGeneral) {
-				return MensajeLogica.obtenerMensajeCompleto("CLASES-NOCLASES", "ES");
-			} else {
-				clases = logica.obtenerClasesPorFecha(fecha, 0,sociedad,idProfesor);
-				return MensajeLogica.obtenerMensajeCompletoConRespuesta("", "",clases);
 			}
 			
 		} catch (SQLException e) {

@@ -420,10 +420,6 @@ public class InscripcionLogica {
 				//String fecha = ins.getFechaInicio();
 				System.out.println("fecha base a sumar:"+fecha);
 				
-				//int valorASumar = ti.getValor();
-				//System.out.println("valor a sumar:"+valorASumar);
-				//String fechaMeses = Utilidades.ultimoDiaDeFecha(Utilidades.sumarMesesAFecha(fecha, valorASumar));
-				
 				int diasCorte = Integer.valueOf(confDiasCorte.getValorAbajo());
 				
 				System.out.println("fecha meses:"+fecha);

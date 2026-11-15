@@ -5,6 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -155,7 +159,38 @@ public class ClaseLogica {
 		return clases;
 	}
 
-	public List<Clase> obtenerClasesDisponiblesUsuario(String fecha, int sociedad,int idProfesor) throws SQLException {
+	private static final String SELECT_CLASES_DISPONIBLES_DIA = 
+				"SELECT c.id_clase, c.nombre, c.hora_inicio, c.hora_fin, c.horario, c.personas AS lugares_totales, c.profesor, c.sociedad, c.estatus, u.nombre AS nombre_profesor, " + 
+				"    ? AS fecha, " + 
+				"    CASE " + 
+				"        WHEN COUNT(ac.id_usuario) >= c.personas THEN 'CLASE LLENA' " + 
+				"        ELSE CONCAT(COUNT(ac.id_usuario), ' / ', c.personas) " + 
+				"    END AS lugaresDisponibles " + 
+				"FROM clase c " + 
+				"JOIN usuario u ON u.id_usuario = c.profesor " + 
+				"LEFT JOIN asistencia_a_clase ac ON ac.id_clase = c.id_clase AND ac.fecha = ? " + 
+				"WHERE c.estatus = '1' ";
+
+	private static final String SELECT_CLASES_DISPONIBLES_SEMANA = "SELECT c.id_clase, c.nombre, c.hora_inicio, c.hora_fin, c.horario, c.personas AS lugares_totales, c.profesor, c.sociedad, c.estatus, u.nombre AS nombre_profesor,dias_semana.fecha, \n" + //
+				"    CASE " + 
+				"        WHEN COUNT(ac.id_usuario) >= c.personas THEN 'CLASE LLENA' " + 
+				"        ELSE CONCAT(COUNT(ac.id_usuario), ' / ', c.personas) " + 
+				"    END AS lugaresDisponibles " + 
+				"FROM clase c " + 
+				"JOIN usuario u ON u.id_usuario = c.profesor " + 
+				"-- Subconsulta para generar/extraer las fechas únicas de asistencia dentro de la semana " + 
+				"-- (asegura que aparezcan los días exactos en que ocurrieron clases en ese rango) " + 
+				"JOIN (" + 
+				"    SELECT DISTINCT id_clase, fecha " + 
+				"    FROM asistencia_a_clase " + 
+				"    WHERE fecha BETWEEN ? AND ? " + 
+				") dias_semana ON dias_semana.id_clase = c.id_clase " + 
+				"-- Relacionamos la asistencia filtrando tanto por la clase como por la fecha exacta de ese día de la semana " + 
+				"LEFT JOIN asistencia_a_clase ac ON ac.id_clase = c.id_clase AND ac.fecha = dias_semana.fecha " + 
+				"WHERE c.estatus = '1' ";
+				
+
+	public List<Clase> obtenerClasesDisponiblesUsuarioAdminyCoach(String fecha, int sociedad,int idProfesor,boolean semana) throws SQLException {
 
 		Connection conn = Conexion.getConnectionDbPool();
 
@@ -168,11 +203,148 @@ public class ClaseLogica {
 		List<Clase> clases = new ArrayList<>();
 		Clase clase;
 
-		querySql = "SELECT c.id_clase,c.nombre,c.hora_inicio,c.hora_fin,c.horario,c.personas,c.profesor,c.estatus,c.sociedad,c.dia,u.nombre " 
-		+ "FROM clase c "
-		+ "JOIN usuario u ON u.id_usuario = c.profesor "
-		+ "WHERE NOT EXISTS (select a.id_clase from asueto a where a.id_clase = c.id_clase and a.fecha IN (?)) "
-		+ "AND c.estatus = '1' ";
+		LocalDate dia = LocalDate.parse(fecha, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+		LocalDate inicioSemana = dia.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		LocalDate finSemana = dia.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+		
+		querySql = semana ? SELECT_CLASES_DISPONIBLES_SEMANA : SELECT_CLASES_DISPONIBLES_DIA;
+		
+		if (sociedad != 0 && !"".equals(sociedad)) {
+			if (!querySql.equals(""))
+				querySql += " AND ";
+			querySql += " c.sociedad = ? ";
+		}
+		
+		if (idProfesor != 0 && !"".equals(idProfesor)) {
+			if (!querySql.equals(""))
+				querySql += " AND ";
+			querySql += " c.profesor = ? ";
+		}
+	
+		if (semana) {
+			querySql += " GROUP BY " +
+					"    c.id_clase, c.nombre, c.hora_inicio, c.hora_fin, c.horario, " +
+					"    c.personas, c.profesor, c.sociedad, c.estatus, u.nombre, dias_semana.fecha " +
+					"ORDER BY dias_semana.fecha, c.hora_inicio; ";
+		} else {
+			querySql += "GROUP BY " +
+					"    c.id_clase, c.nombre, c.hora_inicio, c.hora_fin, c.horario, " +
+					"    c.personas, c.profesor, c.sociedad, c.estatus, u.nombre " +
+					"ORDER BY c.hora_inicio;";
+		}
+
+		System.out.println("query:" + querySql);
+
+		try {
+
+			st = conn.prepareStatement(querySql);
+			if(semana){
+				st.setString(1, inicioSemana.toString());
+				st.setString(2, finSemana.toString());
+			}else{
+				st.setString(1, fecha);
+				st.setString(2, fecha);
+			}
+			if(sociedad != 0){
+				st.setInt(3, sociedad);
+			}
+			if(idProfesor != 0){
+				if(sociedad != 0){
+					st.setInt(4, idProfesor);
+				}else{
+					st.setInt(3, idProfesor);
+				}
+			}
+			rs = st.executeQuery();
+
+			while (rs != null && rs.next()) {
+
+				clase = new Clase();
+				clase.setIdClase(rs.getInt(1));
+				clase.setNombre(rs.getString(2));
+				clase.setHoraInicio(rs.getString(3));
+				clase.setHoraFin(rs.getString(4));
+				clase.setHorario(rs.getString(5) != null ? rs.getString(5) : "");
+				clase.setPersonas(rs.getString(6));
+				clase.setProfesor(rs.getString(7));
+				clase.setSociedad(rs.getInt(8));
+				clase.setEstatus(rs.getString(9));
+
+				if (clase.getHorario().equals("M")) {
+					horario = "AM";
+				} else {
+					horario = "PM";
+				}
+
+				clase.setDescripcionHorario("" + Utilidades.convertirHoraA12Hrs(clase.getHoraInicio()) +  " a " + Utilidades.convertirHoraA12Hrs(clase.getHoraFin()) + " " + horario);
+
+				clase.setProfesorNombre(rs.getString(10));
+				clase.setDescCorta(clase.getDia()+" | "+clase.getHoraInicio() +" a "+ clase.getHoraFin() + " " + horario);
+
+				clase.setFecha(rs.getString(11));
+				clase.setLugaresDisponibles(rs.getString(12));
+
+				clases.add(clase);
+			}
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new SQLException();
+		} finally {
+
+			if (rs != null) {
+				try {
+					rs.close();
+				} catch (SQLException e) {
+					;
+				}
+				rs = null;
+			}
+			if (st != null) {
+				try {
+					st.close();
+				} catch (SQLException e) {
+					;
+				}
+				st = null;
+			}
+			if (conn != null && !conn.isClosed()) {
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					;
+				}
+				conn = null;
+			}
+
+		}
+
+		log.debug("Clases obtenidas:" + clases.size());
+
+		return clases;
+	}
+
+	public List<Clase> obtenerClasesDisponiblesUsuario(String fecha, int sociedad,int idProfesor,int idUsuario) throws SQLException {
+
+		Connection conn = Conexion.getConnectionDbPool();
+
+		PreparedStatement st = null;
+		ResultSet rs = null;
+
+		String querySql = "";
+		String horario = "";
+
+		List<Clase> clases = new ArrayList<>();
+		Clase clase;
+
+		querySql = "SELECT c.id_clase, c.nombre, c.hora_inicio, c.hora_fin, c.horario, c.personas, c.profesor, c.estatus, c.sociedad, c.dia, u.nombre, " + 
+						"CASE WHEN COALESCE(ac.usados, 0) >= c.personas THEN 'CLASE LLENA' ELSE CONCAT(COALESCE(ac.usados, 0), ' / ', c.personas) END AS lugaresDisponibles, " + 
+						"CASE WHEN au.id_clase IS NOT NULL THEN 'true' ELSE 'false' END AS asistencia FROM clase c JOIN usuario u ON u.id_usuario = c.profesor " + 
+						"LEFT JOIN (SELECT id_clase, COUNT(*) AS usados FROM asistencia_a_clase " + 
+						" WHERE fecha = ? AND id_usuario = ? AND id_usuario <> 0 GROUP BY id_clase) au " + 
+						" ON au.id_clase = c.id_clase " + 
+						" LEFT JOIN (SELECT id_clase, COUNT(*) AS usados FROM asistencia_a_clase WHERE fecha = ? GROUP BY id_clase) ac ON ac.id_clase = c.id_clase WHERE c.estatus = '1' " + 
+						" AND NOT EXISTS (SELECT 1 FROM asueto a WHERE a.id_clase = c.id_clase AND a.fecha = ?)";
 		
 		if (sociedad != 0 && !"".equals(sociedad)) {
 			if (!querySql.equals(""))
@@ -194,14 +366,17 @@ public class ClaseLogica {
 
 			st = conn.prepareStatement(querySql);
 			st.setString(1, fecha);
+			st.setInt(2, idUsuario);
+			st.setString(3, fecha);
+			st.setString(4, fecha);
 			if(sociedad != 0){
-				st.setInt(2, sociedad);
+				st.setInt(5, sociedad);
 			}
 			if(idProfesor != 0){
 				if(sociedad != 0){
-					st.setInt(3, idProfesor);
+					st.setInt(6, idProfesor);
 				}else{
-					st.setInt(2, idProfesor);
+					st.setInt(5, idProfesor);
 				}
 			}
 			rs = st.executeQuery();
@@ -235,6 +410,9 @@ public class ClaseLogica {
 				clase.setEstatus(rs.getString(8));
 				clase.setProfesorNombre(rs.getString(11));
 				clase.setDescCorta(clase.getDia()+" | "+clase.getHoraInicio() +" a "+ clase.getHoraFin() + " " + horario);
+
+				clase.setLugaresDisponibles(rs.getString(12));
+				clase.setAsistencia(rs.getString(13));
 
 				clases.add(clase);
 			}
@@ -397,7 +575,6 @@ public class ClaseLogica {
 
 		return clases;
 	}
-
 	public Clase obtenerClase(String columna, String valor,int sociedad,boolean activas) throws SQLException {
 
 		Clase c = null;
@@ -412,25 +589,23 @@ public class ClaseLogica {
 
 	}
 
-	public List<Clase> obtenerClasesPorFecha(String fecha, int idUsuario, int sociedad,int idProfesor) throws SQLException {
+	public List<Clase> obtenerClasesPorFecha(String fecha, int idUsuario, int sociedad,int idProfesor,boolean semana) throws SQLException {
 
 		AsistenciaAClaseLogica acl = new AsistenciaAClaseLogica();
 
-		String fechaFormateada;
 		List<Clase> clases = null;
 		List<Clase> clasesUs = new ArrayList<>();
-		String lugares = "";
-		boolean estaEnClase = false;
 		boolean horarioFueraDeClase = false;
 		boolean valido = true;
 		boolean fueraDeHorario = false;
+
+		if(idProfesor != 0){
+			clases = obtenerClasesDisponiblesUsuarioAdminyCoach(fecha, sociedad, idProfesor, semana);
+	
+		}else{
+			clases = obtenerClasesDisponiblesUsuario(fecha,sociedad,idProfesor,idUsuario);
+		}
 		
-		String claseLlena = MensajeLogica.obtenerMensajeDesc("C-CLASE-LLENA", "ES");
-
-		// Formatear fecha
-		fechaFormateada = Utilidades.fechaEnLetra(fecha);
-
-		clases = obtenerClasesDisponiblesUsuario(fecha,sociedad,idProfesor);
 
 		try{
 			for (Clase clase : clases) {
@@ -440,23 +615,10 @@ public class ClaseLogica {
 				hora = Utilidades.generarFecha(false, true, false, "", 0, fecha).substring(0, 2);
 				horarioFueraDeClase = acl.horarioFueraDeClase(hora, clase.getHoraInicio(), clase.getHorario());
 
-				//System.out.println("clase:"+clase.getDescCorta());
 				if (horarioFueraDeClase) {
-					//System.out.println("Asistencia:"+clase.getAsistencia());
 					
 					if (idUsuario != 0) {
 						String fec = Utilidades.generarFecha(true, false, false, "", 0, fecha);
-						//System.out.println("fecha entrada:"+fec);
-						
-						//Validar que la fecha sea igual y si no no mostrarla
-						/*int c = Utilidades.compararFechaActualVsFecha(fec);
-						if (c==0) {
-							valido = false;
-							fueraDeHorario = true;
-						}else{
-							valido = true;					
-						}*/
-						
 						
 					} else {
 						valido =  true;
@@ -465,44 +627,14 @@ public class ClaseLogica {
 					fueraDeHorario = false;
 					valido = true;
 				}
-				
-				
 
-				lugares = acl.obtenerLugaresUsadosEnClase(clase.getIdClase(), fecha);
-				if (lugares.equals(clase.getPersonas())) {
-					clase.setLugaresDisponibles(claseLlena);
-					clase.setFecha(fechaFormateada);
-				} else {
-					if (lugares.equals("")) {
-						lugares = "0";
-					}
-					clase.setLugaresDisponibles(lugares + " / " + clase.getPersonas());
-					clase.setFecha(fechaFormateada);
-				}
-				if (idUsuario != 0) {
-					// Buscando si esta el usuario en clase
-					estaEnClase = acl.estaEnClase(clase.getIdClase(), idUsuario, fecha);
-					if (estaEnClase) {
-						//clase.setLugar(estaEnClase.getLugar());
-						clase.setAsistencia("true");
-						valido = true;
-					} else {
-						clase.setLugar("0");
-						clase.setAsistencia("false");
-					}
-
-				}
-				
-			
 				if (valido) {
 					clasesUs.add(clase);
 				}
 
 				clase.setFueraDeHorario(fueraDeHorario);
-				
 
 			}
-		
 		
 		} catch (ParseException e) {
 			e.printStackTrace();
@@ -527,14 +659,14 @@ public class ClaseLogica {
 		
 		String claseLlena = MensajeLogica.obtenerMensajeDesc("C-CLASE-LLENA", "ES");
 
-		clases = obtenerClasesDisponiblesUsuario(fecha,sociedad,idProfesor);
+		clases = obtenerClasesDisponiblesUsuario(fecha,sociedad,idProfesor,idUsuario);
 
 		
 			for (Clase clase : clases) {
 				
 				
 
-				lugares = acl.obtenerLugaresUsadosEnClase(clase.getIdClase(), fecha);
+				/*lugares = acl.obtenerLugaresUsadosEnClase(clase.getIdClase(), fecha);
 				if (lugares.equals(clase.getPersonas())) {
 					clase.setLugaresDisponibles(claseLlena);
 					clase.setFecha(fecha);
@@ -556,7 +688,7 @@ public class ClaseLogica {
 						clase.setAsistencia("false");
 					}
 
-				}
+				}*/
 				
 
 			}

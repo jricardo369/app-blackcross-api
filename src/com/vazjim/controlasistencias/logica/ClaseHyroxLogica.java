@@ -150,7 +150,7 @@ public class ClaseHyroxLogica {
 	}
 
 
-	public List<ClaseHyrox> obtenerPorFecha(String fecha, int sociedad) throws SQLException {
+	public List<ClaseHyrox> obtenerPorFecha(String fecha, int sociedad, int idProfesor, boolean semana) throws SQLException {
 
 		String claseLlena = MensajeLogica.obtenerMensajeDesc("C-CLASE-LLENA", "ES");
 
@@ -174,10 +174,20 @@ public class ClaseHyroxLogica {
 						"JOIN usuario u ON u.id_usuario = ch.profesor " + 
 						"JOIN tipo_clase_hyrox t ON t.id_tipo_clase_hyrox = ch.id_tipo_clase " + 
 						"LEFT JOIN asistencia_a_clase_hyrox ac_total ON ac_total.id_clase_hyrox = ch.id_clase_hyrox AND ac_total.fecha = ch.fecha " + 
-						"WHERE ch.fecha BETWEEN ? AND ? ";
+						"WHERE  ";
+
+		if(semana) {
+			querySql += " ch.fecha BETWEEN ? AND ? ";
+		}else{
+			querySql += " ch.fecha = ? ";
+		}
 
 		if (sociedad != 0) {
 			querySql += "AND ch.sociedad = ? ";
+		}
+
+		if (idProfesor != 0) {
+			querySql += "AND ch.profesor = ? ";
 		}
 
 		querySql += "GROUP BY ch.id_clase_hyrox, ch.id_tipo_clase, ch.nombre, ch.fecha, ch.lugares, ch.wod, ch.hora_inicio, ch.hora_fin, " + 
@@ -189,11 +199,22 @@ public class ClaseHyroxLogica {
 		try {
 
 			st = conn.prepareStatement(querySql);
-			st.setString(1, inicioSemana.toString());
-			st.setString(2, finSemana.toString());
+			int paramIndex = 0;
+			if(semana) {
+				paramIndex = 3;
+				st.setString(1, inicioSemana.toString());
+				st.setString(2, finSemana.toString());
+			}else{
+				paramIndex = 2;
+				st.setString(1, fecha);
+			}
 
+			
 			if (sociedad != 0) {
-				st.setInt(3, sociedad);
+				st.setInt(paramIndex++, sociedad);
+			}
+			if (idProfesor != 0) {
+				st.setInt(paramIndex++, idProfesor);
 			}
 
 			rs = st.executeQuery();

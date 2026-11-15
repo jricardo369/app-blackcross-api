@@ -22,6 +22,7 @@ import com.vazjim.controlasistencias.logica.ConfiguracionLogica;
 import com.vazjim.controlasistencias.logica.InscripcionLogica;
 import com.vazjim.controlasistencias.logica.LogLogica;
 import com.vazjim.controlasistencias.logica.MensajeLogica;
+import com.vazjim.controlasistencias.logica.UsuarioLogica;
 import com.vazjim.controlasistencias.modelo.TipoInscripcion;
 import com.vazjim.controlasistencias.modelo.TipoPago;
 import com.vazjim.controlasistencias.modelo.Configuracion;
@@ -90,6 +91,7 @@ public class InscripcionServicio {
 	public String insertarInscripcion(String JSONEntrada) {
 
 		Utilidades util = new Utilidades();
+		UsuarioLogica u = new UsuarioLogica();
 
 		InscripcionLogica logica = new InscripcionLogica();
 		Gson gSon = new GsonBuilder().create();
@@ -140,7 +142,8 @@ public class InscripcionServicio {
 						if (Utilidades.diferenciaDias(fechaAc, fechaCorteMensual) > pim) {
 							return MensajeLogica.obtenerMensajeCompleto("INSC-INSEXISTEACTUAL", "ES");
 						}
-						
+						//Actualizar estatus en caso que tenga bloqueo por pago
+						u.cambiarEstatusUsuario(obj.getIdUsuario(), "1", 0);
 						
 					}
 				}

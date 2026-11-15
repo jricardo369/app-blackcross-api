@@ -155,7 +155,7 @@ public class AsistenciaAClaseHyroxServicio {
 				try {
 					Clase c =asistenciaAClaseCrossfit.estaEnClaseEnFecha(fecha,idUsuario);
 					if(c != null){
-						return MensajeLogica.obtenerMensajeCompleto("ERR-CLASE-HYROX", "ES");
+						return MensajeLogica.obtenerMensajeCompleto("ERR-CLASE-CROSS", "ES");
 					}
 				} catch (SQLException e) {
 					e.printStackTrace();
